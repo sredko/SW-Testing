@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="SW-testing : Running iOS Unittest on Simulator.app with Jenkins" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>SW-testing</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/sredko/SW-Testing">View on GitHub</a>
+
+          <h1 id="project_title">SW-testing</h1>
+          <h2 id="project_tagline">Running iOS Unittest on Simulator.app with Jenkins</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/sredko/SW-Testing/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/sredko/SW-Testing/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h2>
+<a name="prerequisites" class="anchor" href="#prerequisites"><span class="octicon octicon-link"></span></a>Prerequisites</h2>
+
+<ul>
+<li>You have already deployed <a href="http://jenkins-ci.org">Jenkins</a> continuous integration solution up and running on your server and configured Mac OS X workstation as slave node responsible for building your product for Apple's iOS platform.</li>
+<li>You have already implemented Application unit tests (tests that work by hosting the test bundle inside of the Application) and want them running  during of Jenkins job that builds your iOS product.</li>
+</ul><p>As of Xcode 4.6, Apple still doesn't support running Application type of tests in command line builds, however solution like <a href="https://npmjs.org/package/ios-sim">ios-sim</a> integrated in <a href="http://code.google.com/p/google-toolbox-for-mac/wiki/iPhoneUnitTesting">Google's iPhoneUnitTesting  </a> exists for this.</p>
+
+<h2>
+<a name="problem" class="anchor" href="#problem"><span class="octicon octicon-link"></span></a>Problem</h2>
+
+<p>The ios-sim tool is a command-line utility that launches an iOS application on the iOS Simulator. However it (or any other similar tool) wont work as expected when called within SSH session used by Jenkins <a href="https://wiki.jenkins-ci.org/display/JENKINS/Building+a+software+project#Buildingasoftwareproject-ShellScriptsandWindowsBatchCommands">as configured</a> to initiate job on slave node.</p>
+
+<p>This happens because logged SSH session is managed by launch daemon on Mac and cannot have connections with system Window Server required to launch UI applications (See picture 1). More information can be found <a href="https://developer.apple.com/library/mac/#documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/DesigningDaemons.html#//apple_ref/doc/uid/10000172i-SW4-SW9">here</a> </p>
+
+<p><img src="https://raw.github.com/sredko/SW-Testing/master/art/Jenkins-iOS1.png" alt="test">
+Picture 1</p>
+
+<h2>
+<a name="solution" class="anchor" href="#solution"><span class="octicon octicon-link"></span></a>Solution</h2>
+
+<p>It is needed to initiate invocation of tool that launches Simulator within context of some regular logged user session and pass results of Unittests execution back to SSH session for sending them back to Jenkins server (Picture 2).</p>
+
+<p><img src="https://raw.github.com/sredko/SW-Testing/master/art/Jenkins-iOS2.png" alt="test">
+Picture 2</p>
+
+<h2>
+<a name="step-by-step-guide" class="anchor" href="#step-by-step-guide"><span class="octicon octicon-link"></span></a>Step by step guide</h2>
+
+<p>Solution can be performed according to the following steps:</p>
+
+<ol>
+<li>Install Jenkins on Mac OS X slave node</li>
+<li>
+<a href="https://wiki.jenkins-ci.org/display/JENKINS/Administering+Jenkins#AdministeringJenkins-Moving%2Fcopying%2Frenamingjobs">Transfer job configuration</a> that "Builds and Runs Unittests" from Jenkins Master server to Jenkins installed on Mac</li>
+<li>Configure Jenkins on Mac to be launched within some dedicated user login context:</li>
+</ol><blockquote>
+<pre><code>sudo launchctl unload /Library/LaunchDaemons/org.jenkins-ci.plist
+sudo mv /Library/LaunchDaemons/org.jenkins-ci.plist ~/Library/LaunchAgents/
+sudo chown LOGGED_USERNAME:staff ~/Library/LaunchAgents/org.jenkins-ci.plist
+</code></pre>
+</blockquote>
+
+<p>In org.jenkins-ci.plist set the following values for keys:
+GroupName: staff
+UserName: LOGGED_USERNAME</p>
+
+<ol>
+<li>Restart. <code>sudo launchctl load ~/Library/LaunchAgents/org.jenkins-ci.plist</code> didn't help me</li>
+<li>On Master Jenkins instead of job configuration (transferred to Mac slave in #2) add "mediation" shell script that  will use Jenkins <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+CLI">CLI - command line interface</a> to initiate job by Jenkins installed on Mac from logged used session context:</li>
+</ol><blockquote>
+<pre><code>#/bin/sh
+
+java -jar jenkins-cli.jar -s http://127.0.0.1:8080/  build -s -v 'ACTUAL_JOB_NAME'
+
+status=$?
+if [ "${status}" -ne "0" ]; then
+    echo "ERROR: FAILED TO BUILD PRODUCT"
+    exit 1
+fi
+echo "SUCCESS"
+</code></pre>
+</blockquote>
+
+<p>Also please note that you should have PATH env variable set to find Jenkins HOME directory.
+Passed parameters will make initiated process from SSH session wait for job completion and read full console log from performed job. So full log and execution result will be delivered back to Master server.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">SW-testing maintained by <a href="https://github.com/sredko">sredko</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
