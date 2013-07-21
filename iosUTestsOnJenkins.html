@@ -67,21 +67,21 @@ Picture 2</p>
 <li>
 <a href="https://wiki.jenkins-ci.org/display/JENKINS/Administering+Jenkins#AdministeringJenkins-Moving%2Fcopying%2Frenamingjobs">Transfer job configuration</a> that "Builds and Runs Unittests" from Jenkins Master server to Jenkins installed on Mac</li>
 <li>Configure Jenkins on Mac to be launched within some dedicated user login context:</li>
-</ol><blockquote>
+<blockquote>
 <pre><code>sudo launchctl unload /Library/LaunchDaemons/org.jenkins-ci.plist
 sudo mv /Library/LaunchDaemons/org.jenkins-ci.plist ~/Library/LaunchAgents/
 sudo chown LOGGED_USERNAME:staff ~/Library/LaunchAgents/org.jenkins-ci.plist
 </code></pre>
 </blockquote>
 
-<p>In org.jenkins-ci.plist set the following values for keys:
-GroupName: staff
+<p>In org.jenkins-ci.plist set the following values for keys:<br>
+GroupName: staff<br>
 UserName: LOGGED_USERNAME</p>
 
-<ol>
 <li>Restart. <code>sudo launchctl load ~/Library/LaunchAgents/org.jenkins-ci.plist</code> didn't help me</li>
 <li>On Master Jenkins instead of job configuration (transferred to Mac slave in #2) add "mediation" shell script that  will use Jenkins <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+CLI">CLI - command line interface</a> to initiate job by Jenkins installed on Mac from logged used session context:</li>
-</ol><blockquote>
+</ol>
+<blockquote>
 <pre><code>#/bin/sh
 
 java -jar jenkins-cli.jar -s http://127.0.0.1:8080/  build -s -v 'ACTUAL_JOB_NAME'
